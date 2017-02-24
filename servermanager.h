@@ -1,0 +1,5 @@
+#ifndef SERVERMANAGER_H
+#define SERVERMANAGER_H
+
+#endif // SERVERMANAGER_H
+
