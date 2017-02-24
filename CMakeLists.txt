@@ -130,6 +130,8 @@ SET(${PROJECT_NAME}_SRCS
   WidgetHints.h
   servermanager.h
   servermanager.cpp
+  ParaView.h
+  ParaView.cpp
   )
 
 ADD_EXECUTABLE(${PROJECT_NAME} ${${PROJECT_NAME}_SRCS})
