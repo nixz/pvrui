@@ -59,8 +59,8 @@ mvMouseRotationTool::mvMouseRotationTool(const ToolFactory *f,
   : Superclass(f, iA),
     m_rotationOffsetParam(Vrui::getDisplaySize() / 4.),
     m_rotationFactor(Vrui::getDisplaySize() / 4.),
-    m_rotationOffset(Vrui::getUiPlane().transform(
-                       Vector(0., 0., m_rotationOffsetParam))),
+    //m_rotationOffset(Vrui::getUiPlane().transform(
+    //                   Vector(0., 0., m_rotationOffsetParam))),
     m_center(Vrui::getDisplayCenter()),
     m_lastPosition(),
     m_currentPosition(),
@@ -119,8 +119,8 @@ Point mvMouseRotationTool::currentPosition() const
   Point rayStart = this->sourceDevice->getPosition();
   Vector rayDirection = this->sourceDevice->getRayDirection();
 
-  Point planeCenter = Vrui::getUiPlane().getOrigin();
-  Vector planeNormal = Vrui::getUiPlane().getDirection(2);
+  Point planeCenter;// = Vrui::getUiPlane().getOrigin();
+  Vector planeNormal;// = Vrui::getUiPlane().getDirection(2);
   Scalar lambda = ((planeCenter - rayStart) * planeNormal) / (rayDirection *
                                                               planeNormal);
   return rayStart + rayDirection * lambda;
