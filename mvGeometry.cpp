@@ -11,11 +11,23 @@
 #include <vtkPolyDataMapper.h>
 #include <vtkProperty.h>
 
+#include <vtkActor.h>
+#include <vtkActorCollection.h>
+#include <vtkSMRenderViewProxy.h>
+#include <vtkCompositeDataGeometryFilter.h>
+#include <vtkExodusIIReader.h>
+#include <vtkExternalOpenGLRenderer.h>
+#include <vtkLookupTable.h>
+#include <vtkMultiBlockDataSet.h>
+#include <vtkPolyDataMapper.h>
+#include <vtkProperty.h>
+#include <vtkRenderer.h>
 #include <vvContextState.h>
 
 #include "mvApplicationState.h"
 #include "mvReader.h"
 
+extern vtkSMRenderViewProxy* RVP;
 
 //------------------------------------------------------------------------------
 vtkDataObject *
@@ -83,7 +95,25 @@ void mvGeometry::GeometryRenderPipeline::init(const ObjectState &,
   this->actor->GetProperty()->SetEdgeColor(1., 1., 1.);
   this->actor->SetMapper(this->mapper.Get());
 
-  contextState.renderer().AddActor(this->actor.Get());
+  //contextState.renderer().AddActor(this->actor.Get());
+
+  std::cout << "####################################"<<std::endl;
+  if (RVP){
+      vtkActorCollection* totalActors = RVP->GetRenderer()->GetActors();
+      vtkActor * pCurActor = NULL;
+       totalActors->InitTraversal();
+        do
+          {
+          pCurActor = totalActors->GetNextActor();
+
+          if (pCurActor != NULL && pCurActor->GetVisibility())
+            if(pCurActor->GetMapper() !=NULL)
+              {
+              contextState.renderer().AddActor(pCurActor);
+              }
+
+          } while (pCurActor != NULL);
+      }
 }
 
 //------------------------------------------------------------------------------
@@ -91,11 +121,46 @@ void mvGeometry::GeometryRenderPipeline::update(
     const ObjectState &objState, const vvApplicationState &vvState,
     const vvContextState &contextState, const LODData &result)
 {
-  const mvApplicationState &appState =
+    std::cout<<"*****************update **************" <<std::endl;
+    RVP->UpdateVTKObjects();
+    RVP->ResetCamera();
+    vtkActorCollection* removalActors = contextState.renderer().GetActors();
+    std::cout<<"total actors = " << removalActors->GetNumberOfItems()<<std::endl;
+
+    vtkActor *current = NULL;
+    removalActors->InitTraversal();
+    do
+      {
+      current = removalActors->GetNextActor();
+      contextState.renderer().RemoveActor(current);
+
+      } while (current != NULL);
+
+    if (RVP){
+        RVP->StillRender();
+        vtkActorCollection* totalActors = RVP->GetRenderer()->GetActors();
+        std::cout<<"total actors = " << totalActors->GetNumberOfItems()<<std::endl;
+        vtkActor * pCurActor = NULL;
+         totalActors->InitTraversal();
+          do
+            {
+            pCurActor = totalActors->GetNextActor();
+
+            if (pCurActor != NULL && pCurActor->GetVisibility())
+              if(pCurActor->GetMapper() !=NULL)
+                {
+                  pCurActor->GetMapper()->UpdateDataObject();
+                contextState.renderer().AddActor(pCurActor);
+                }
+
+            } while (pCurActor != NULL);
+        }
+#if 0
+
+    const mvApplicationState &appState =
       static_cast<const mvApplicationState &>(vvState);
   const GeometryState &state = static_cast<const GeometryState&>(objState);
   const GeometryLODData &data = static_cast<const GeometryLODData&>(result);
-
   if (!state.visible ||
       state.representation == Representation::NoGeometry ||
       !data.geometry)
@@ -157,6 +222,7 @@ void mvGeometry::GeometryRenderPipeline::update(
 
   this->actor->GetProperty()->SetOpacity(state.opacity);
   this->actor->SetVisibility(1);
+#endif
 }
 
 //------------------------------------------------------------------------------
