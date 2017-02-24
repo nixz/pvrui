@@ -15,6 +15,21 @@
 #include <vtkMultiBlockDataSet.h>
 #include <vtkPointData.h>
 
+// PV includes
+#include <vtkProcessModule.h>
+#include <vtkSMProxyManager.h>
+#include <vtkSMSessionClient.h>
+#include <vtkNetworkAccessManager.h>
+#include <vtkSMSessionProxyManager.h>
+#include <vtkSMProxySelectionModel.h>
+#include <vtkSMSourceProxy.h>
+#include <vtkSMViewProxy.h>
+#include <vtkSMRenderViewProxy.h>
+#include <vtkNew.h>
+#include <vtkIdTypeArray.h>
+#include <vtkActorCollection.h>
+#include <vtkRenderer.h>
+
 // OpenGL/Motif includes
 #include <GL/GLContextData.h>
 #include <GLMotif/CascadeButton.h>
@@ -47,6 +62,7 @@
 #include "mvApplicationState.h"
 #include "mvContours.h"
 #include "mvGeometry.h"
+#include "ParaView.h"
 #include "mvInteractorTool.h"
 #include "mvMouseRotationTool.h"
 #include "mvOutline.h"
@@ -57,6 +73,8 @@
 #include "TransferFunction1D.h"
 #include "VariablesDialog.h"
 #include "WidgetHints.h"
+
+vtkSMRenderViewProxy* RVP = 0;
 
 
 //----------------------------------------------------------------------------
@@ -109,6 +127,92 @@ MooseViewer::~MooseViewer(void)
 void MooseViewer::initialize()
 {
   this->Superclass::initialize();
+
+  // Connect to remote paraview
+    vtkSMSourceProxy* ActiveSources;
+    vtkSMViewProxy* ActiveView;
+
+    std::cout << "Connecting to URL: " << m_url  << '\n';
+
+    vtkNew<vtkSMSessionClient> session;
+    session->Connect(m_url.c_str());
+    vtkIdType id = vtkProcessModule::GetProcessModule()->RegisterSession(session.GetPointer());
+    vtkSMProxyManager* pxm = vtkSMProxyManager::GetProxyManager();//->GetActiveSessionProxyManager();
+    pxm->SetActiveSession(id);
+    if(pxm->GetActiveSession()) {
+      vtkSMSessionClient* activeSession = vtkSMSessionClient::SafeDownCast(pxm->GetActiveSession());
+      if(activeSession->IsMultiClients()&& activeSession->IsNotBusy()) {
+        std::cout<< "Processing remote events" <<std::endl;
+        while(vtkProcessModule::GetProcessModule()->GetNetworkAccessManager()->ProcessEvents(100));
+      }
+   }
+  vtkSMSessionProxyManager* spxm = vtkSMProxyManager::GetProxyManager()->GetActiveSessionProxyManager();
+  std::cout<<"connected"<<spxm<<std::endl;
+  spxm->UpdateFromRemote();
+  // setup the active-view and active-sources selection models.
+  vtkSMProxySelectionModel* selmodel = spxm->GetSelectionModel("ActiveSources");
+  if (selmodel == NULL)
+    {
+    std::cout << "Active Sources not found" << std::endl;
+
+    selmodel = vtkSMProxySelectionModel::New();
+    spxm->RegisterSelectionModel("ActiveSources", selmodel);
+    selmodel->FastDelete();
+    }
+  ActiveSources = vtkSMSourceProxy::SafeDownCast(selmodel->GetCurrentProxy());
+  selmodel = spxm->GetSelectionModel("ActiveView");
+  if (selmodel == NULL)
+    {
+    std::cout << "Active View not found" << std::endl;
+
+    selmodel = vtkSMProxySelectionModel::New();
+    spxm->RegisterSelectionModel("ActiveView", selmodel);
+    selmodel->FastDelete();
+    }
+  ActiveView = vtkSMViewProxy::SafeDownCast(selmodel->GetCurrentProxy());
+
+  //  vtkSMProxy* sphere1 = pxm->NewProxy("sources", "SphereSource");
+//  sphere1->UpdateVTKObjects();
+//  vtkSMProxy* view1 = pxm->NewProxy("views", "RenderView");
+//  view1->UpdateVTKObjects();
+//  vtkSMRenderViewProxy::SafeDownCast(view1)->StillRender();
+//  int foo; cin >> foo;
+//  exit();
+//  sphere1->Delete();
+//  view1->Delete();
+  vtkSMRenderViewProxy *rvp = 0;
+//  vtkSMViewProxy *vp;
+  rvp=vtkSMRenderViewProxy::SafeDownCast(selmodel->GetCurrentProxy());
+  //vp=vtkSMRenderViewProxy::SafeDownCast(rvp);
+  //vp->EnableOff();
+  //rvp->InteractiveRender();
+  rvp->UpdateVTKObjects();
+  rvp->StillRender();
+
+  RVP = rvp;
+  vtkActorCollection* actors;
+  actors = rvp->GetRenderer()->GetActors();
+
+  std::cout<<"total actors = " << actors->GetNumberOfItems()<<std::endl;
+
+  //vtkSMRenderViewProxy::SafeDownCast(pxm->GetProxy("views","RenderView"));
+/*
+  if(rvp)
+    {
+    _renderer = new vtkVRJugglerRenderer(rvp);//vtkSMRenderViewProxy::SafeDownCast(view1));
+    _renderer->OffScreenRenderingOn();
+    rvp->UpdateVTKObjects();
+    rvp->ResetCamera();
+    //rvp->StillRender();
+    }
+  else
+    {
+    cout<<" Render view proxy not found" <<std::endl;
+    int temp;
+    cin >> temp;
+    return;
+    }
+*/
 
   // Start async file read.
   m_mvState.reader().update(m_mvState);
@@ -165,6 +269,12 @@ void MooseViewer::setFileName(const std::string &name)
 {
   m_mvState.reader().setFileName(name);
   m_mvState.reader().updateInformation();
+}
+
+void MooseViewer::setURL(const std::string &url)
+{
+  //m_mvState.pvgeometry().setFileName(name);
+ m_url = url;
 }
 
 //----------------------------------------------------------------------------
@@ -667,6 +777,19 @@ GLMotif::PopupWindow* MooseViewer::createRenderingDialog(void) {
 //----------------------------------------------------------------------------
 void MooseViewer::frame()
 {
+  // Update events from ParaView
+    vtkSMSessionClient* session = vtkSMSessionClient::SafeDownCast(vtkSMProxyManager::GetProxyManager()->GetActiveSession());
+   if(session->IsMultiClients()&& session->IsNotBusy())
+        {
+        std::cout<< "Processing remote events" <<std::endl;
+        while(vtkProcessModule::GetProcessModule()->GetNetworkAccessManager()->ProcessEvents(100));
+        }
+   std::cout<<"total actors = " << RVP->GetRenderer()->GetActors()->GetNumberOfItems()<<std::endl;
+
+   vtkSMProxyManager::GetProxyManager()->GetActiveSessionProxyManager()->UpdateFromRemote();
+    RVP->UpdateVTKObjects();
+RVP->SynchronizeCameraProperties();
+
   // Update internal state:
   m_mvState.reader().update(m_mvState);
   this->updateHistogram();
@@ -810,6 +933,42 @@ void MooseViewer::changeRepresentationCallback(
     {
     m_mvState.geometry().setRepresentation(mvGeometry::NoGeometry);
     m_mvState.geometry().setVisible(false);
+    m_mvState.volume().setVisible(true);
+    }
+  if (strcmp(callBackData->toggle->getName(), "PVShowSurface") == 0)
+    {
+    m_mvState.pvgeometry().setRepresentation(ParaView::Surface);
+    m_mvState.pvgeometry().setVisible(true);
+    m_mvState.volume().setVisible(false);
+    }
+  else if (strcmp(callBackData->toggle->getName(), "PVShowSurfaceWithEdges") == 0)
+    {
+    m_mvState.pvgeometry().setRepresentation(ParaView::SurfaceWithEdges);
+    m_mvState.pvgeometry().setVisible(true);
+    m_mvState.volume().setVisible(false);
+    }
+  else if (strcmp(callBackData->toggle->getName(), "PVShowWireframe") == 0)
+    {
+    m_mvState.pvgeometry().setRepresentation(ParaView::Wireframe);
+    m_mvState.pvgeometry().setVisible(true);
+    m_mvState.volume().setVisible(false);
+    }
+  else if (strcmp(callBackData->toggle->getName(), "PVShowPoints") == 0)
+    {
+    m_mvState.pvgeometry().setRepresentation(ParaView::Points);
+    m_mvState.pvgeometry().setVisible(true);
+    m_mvState.volume().setVisible(false);
+    }
+  else if (strcmp(callBackData->toggle->getName(), "PVShowNone") == 0)
+    {
+    m_mvState.pvgeometry().setRepresentation(ParaView::NoGeometry);
+    m_mvState.pvgeometry().setVisible(false);
+    m_mvState.volume().setVisible(false);
+    }
+  else if (strcmp(callBackData->toggle->getName(), "PVShowVolume") == 0)
+    {
+    m_mvState.pvgeometry().setRepresentation(ParaView::NoGeometry);
+    m_mvState.pvgeometry().setVisible(false);
     m_mvState.volume().setVisible(true);
     }
   else if (strcmp(callBackData->toggle->getName(), "ShowOutline") == 0)
@@ -1172,9 +1331,58 @@ void MooseViewer::setScalarMaximum(double max)
 //----------------------------------------------------------------------------
 void MooseViewer::centerDisplay() const
 {
-  auto bbox = m_mvState.reader().bounds();
+    double xmin=0.0, xmax=0.0,ymin=0.0,ymax=0.0,zmin=0.0,zmax=0.0;
+    double bounds[6];
+
+  vtkActor * pCurActor = NULL;
+  vtkActorCollection* actors = RVP->GetRenderer()->GetActors();
+  actors->InitTraversal();
+  do
+    {
+      pCurActor = actors->GetNextActor();
+      if (pCurActor != NULL)
+        if(pCurActor->GetMapper() !=NULL)
+          {
+          pCurActor->GetBounds(bounds);
+          xmin = (bounds[0]<xmin)?bounds[0]:xmin;
+          xmax = (bounds[1]>xmax)?bounds[1]:xmax;
+          ymin = (bounds[2]<ymin)?bounds[2]:ymin;
+          ymax = (bounds[3]>ymax)?bounds[3]:ymax;
+          zmin = (bounds[4]<zmin)?bounds[4]:zmin;
+          zmax = (bounds[5]>zmax)?bounds[5]:zmax;
+          }
+      } while (pCurActor != NULL);
+    bounds[0]=xmin;
+    bounds[1]=xmax;
+    bounds[2]=ymin;
+    bounds[3]=ymax;
+    bounds[4]=zmin;
+    bounds[5]=zmax;
+
+  //auto bbox = m_mvState.reader().bounds();
   double center[3];
-  bbox.GetCenter(center);
+  double length;
+  double x = (bounds[0]+bounds[1])/2;
+  double y = (bounds[2]+bounds[3])/2;
+  double z = (bounds[4]+bounds[5])/2;
+  double scale=x;
+  if(y>scale) scale =y;
+  if(z>scale) scale =z;
+  if(scale<0) scale*=-1;
+
+  double x1 = bounds[0];
+  double x2 = bounds[1];
+  double y1 = bounds[2];
+  double y2 = bounds[3];
+  double z1 = bounds[4];
+  double z2 = bounds[5];
+
+  double radius=sqrt((x2-x1)*(x2-x1) + (y2-y1)*(y2-y1) + (z2-z1)*(z2-z1));
+  cout << "center = " << x << " " << y << " " << z <<" "<<endl;
+  cout << "radius = " << radius << endl;
+  center[0] = x;
+  center[1] = y;
+  center[2] = z;
   Vrui::setNavigationTransformation(Vrui::Point(center),
-                                    0.75 * bbox.GetDiagonalLength());
+                                    0.75 * radius);
 }

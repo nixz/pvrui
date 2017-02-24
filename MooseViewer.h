@@ -46,6 +46,7 @@ class MooseViewer: public vvApplication
 {
 private:
   mvApplicationState &m_mvState;
+  std::string m_url;
 
   /* Hints for widgets: */
   std::string widgetHintsFile;
@@ -114,6 +115,9 @@ public:
   /* Methods to set/get the filename to read */
   void setFileName(const std::string &name);
   const std::string &getFileName(void);
+
+  /*Method to get/set the ParaView ConnectionURL */
+  void setURL(const std::string &url);
 
   /* Methods to set/get the widget hints file */
   void setWidgetHintsFile(const std::string &whFile);
