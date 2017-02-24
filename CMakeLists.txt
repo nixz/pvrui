@@ -77,6 +77,8 @@ SET(${PROJECT_NAME}_SRCS
   ControlPointChangedCallbackData.h
   ControlPoint.cpp
   ControlPoint.h
+  Connection.h
+  Connection.cpp
   Gaussian.cpp
   Gaussian.h
   main.cpp
@@ -126,6 +128,8 @@ SET(${PROJECT_NAME}_SRCS
   VariablesDialog.h
   WidgetHints.cpp
   WidgetHints.h
+  servermanager.h
+  servermanager.cpp
   )
 
 ADD_EXECUTABLE(${PROJECT_NAME} ${${PROJECT_NAME}_SRCS})
