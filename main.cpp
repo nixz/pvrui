@@ -1,6 +1,11 @@
 // STD includes
 #include <iostream>
 #include <string>
+#include <vtkPVOptions.h>
+#include <vtkInitializationHelper.h>
+#include <vtkNew.h>
+#include <vtkProcessModule.h>
+
 
 // MooseViewer includes
 #include "MooseViewer.h"
@@ -50,12 +55,16 @@ int main(int argc, char* argv[])
 {
   try
     {
-    std::string name;
+    std::string name="can.ex2";
     int renderMode = -1;
     bool showFPS = false;
     bool benchmark = false;
     bool hidebgnotifs = false;
     std::string widgetHints;
+
+    vtkNew<vtkPVOptions> Options;
+    vtkInitializationHelper::Initialize(argc, argv, vtkProcessModule::PROCESS_CLIENT,Options.GetPointer());
+
     if(argc > 1)
       {
       /* Parse the command-line arguments */
@@ -100,10 +109,15 @@ int main(int argc, char* argv[])
       {
       std::cerr << "\nERROR: FileName not provided." << std::endl;
       printUsage(false);
-      return 1;
+      //return 1;
       }
 
     MooseViewer application(argc, argv);
+  //  if(strlen(Options->GetServerURL())){
+  //      application.setURL(Options->GetServerURL());
+  //  } else {
+        application.setURL("cs://localhost:11111");
+   // }
     application.setShowFPS(showFPS);
     application.setBenchmark(benchmark);
     application.setProgressVisibility(!hidebgnotifs);
@@ -118,6 +132,9 @@ int main(int argc, char* argv[])
       }
     application.initialize();
     application.run();
+    vtkInitializationHelper::Finalize();
+    Options->Delete();
+
     return 0;
     }
   catch (std::runtime_error e)
