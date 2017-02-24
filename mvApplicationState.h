@@ -10,6 +10,7 @@
 
 class mvContours;
 class mvGeometry;
+class ParaView;
 class mvInteractor;
 class mvOutline;
 class mvReader;
@@ -52,6 +53,10 @@ public:
   mvGeometry& geometry() { return *m_geometry; }
   const mvGeometry& geometry() const { return *m_geometry; }
 
+  /** Main polydata geometry rendering. */
+  ParaView& pvgeometry() { return *m_paraview; }
+  const ParaView& pvgeometry() const { return *m_paraview; }
+
   /** Analysis tool interaction. */
   mvInteractor& interactor() { return *m_interactor; }
   const mvInteractor& interactor() const { return *m_interactor; }
@@ -86,6 +91,7 @@ private:
   vtkTimeStamp m_colorByMTime;
   mvContours *m_contours;
   mvGeometry *m_geometry;
+  ParaView *m_paraview;
   mvInteractor *m_interactor;
   mvOutline *m_outline;
   mvReader *m_reader;
