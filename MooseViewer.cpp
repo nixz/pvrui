@@ -188,7 +188,7 @@ void MooseViewer::initialize()
   //rvp->InteractiveRender();
   rvp->UpdateVTKObjects();
   rvp->StillRender();
-
+  //rvp->Update();
   RVP = rvp;
   vtkActorCollection* actors;
   actors = rvp->GetRenderer()->GetActors();
